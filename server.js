@@ -13,7 +13,20 @@ const DEFAULT_CONFIG = { cookieString: '' };
 
 function loadConfig() {
   try {
-    return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
+    const cfg = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
+    // Migrate old format (individual fields) to new format (cookieString)
+    if (!cfg.cookieString && cfg.serviceToken) {
+      const parts = [];
+      if (cfg.serviceToken) parts.push(`serviceToken="${cfg.serviceToken}"`);
+      if (cfg.xiaomichatbot_ph) parts.push(`xiaomichatbot_ph="${cfg.xiaomichatbot_ph}"`);
+      if (cfg.apiPlatformServiceToken) parts.push(`api-platform_serviceToken="${cfg.apiPlatformServiceToken}"`);
+      if (cfg.userId) parts.push(`userId=${cfg.userId}`);
+      if (cfg.apiPlatformSlh) parts.push(`api-platform_slh="${cfg.apiPlatformSlh}"`);
+      if (cfg.apiPlatformPh) parts.push(`api-platform_ph="${cfg.apiPlatformPh}"`);
+      cfg.cookieString = parts.join('; ');
+      saveConfig(cfg);
+    }
+    return cfg;
   } catch {
     return { ...DEFAULT_CONFIG };
   }
