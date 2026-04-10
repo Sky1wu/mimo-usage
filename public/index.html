@@ -29,6 +29,17 @@
   .error { color: #f85149; font-size: .85rem; margin-top: 12px; }
   .loading { color: #8b949e; font-size: .85rem; margin-top: 16px; text-align: center; }
   .success { color: #3fb950; font-size: .85rem; margin-top: 8px; }
+
+  .settings-toggle { background: none; border: none; color: #8b949e; font-size: .8rem; cursor: pointer; margin-top: 16px; text-align: center; width: 100%; }
+  .settings-toggle:hover { color: #e1e4e8; }
+  .settings-panel { margin-top: 16px; display: none; }
+  .settings-panel.open { display: block; }
+  .settings-panel label { display: block; font-size: .8rem; color: #8b949e; margin-bottom: 6px; }
+  .settings-panel textarea { width: 100%; height: 100px; background: #0d1117; color: #e1e4e8; border: 1px solid #30363d; border-radius: 8px; padding: 10px; font-size: .8rem; font-family: monospace; resize: vertical; }
+  .settings-panel textarea:focus { outline: none; border-color: #238636; }
+  .settings-panel .hint { font-size: .7rem; color: #6e7681; margin-top: 4px; margin-bottom: 10px; }
+  .btn-save { margin-top: 10px; width: 100%; padding: 8px; background: #1f6feb; color: #fff; border: none; border-radius: 8px; font-size: .85rem; cursor: pointer; font-weight: 500; }
+  .btn-save:hover { background: #388bfd; }
 </style>
 </head>
 <body>
@@ -38,6 +49,14 @@
 <div class="card">
   <button class="btn" id="fetchBtn" onclick="fetchUsage()"><span class="refresh-icon">&#x21bb;</span> 刷新</button>
   <div id="result"></div>
+  <button class="settings-toggle" id="settingsToggle" onclick="toggleSettings()">⚙ Cookie 设置</button>
+  <div class="settings-panel" id="settingsPanel">
+    <label for="cookieInput">Cookie 字符串</label>
+    <textarea id="cookieInput" placeholder="粘贴从浏览器复制的完整 Cookie 字符串..."></textarea>
+    <div class="hint">从浏览器开发者工具 → 网络 → 请求头 → Cookie 复制完整内容</div>
+    <button class="btn-save" id="saveBtn" onclick="saveCookie()">保存</button>
+    <div id="saveResult"></div>
+  </div>
 </div>
 
 <script>
@@ -93,6 +112,36 @@ async function fetchUsage() {
 
 // Auto-fetch on load
 fetchUsage();
+
+function toggleSettings() {
+  document.getElementById('settingsPanel').classList.toggle('open');
+}
+
+async function saveCookie() {
+  const btn = document.getElementById('saveBtn');
+  const result = document.getElementById('saveResult');
+  const cookieString = document.getElementById('cookieInput').value.trim();
+
+  btn.disabled = true;
+  btn.textContent = '保存中...';
+
+  try {
+    const resp = await fetch('/api/config', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ cookieString }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || '保存失败');
+    result.innerHTML = '<p class="success">Cookie 已保存</p>';
+    fetchUsage();
+  } catch (e) {
+    result.innerHTML = `<p class="error">${e.message}</p>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '保存';
+  }
+}
 </script>
 </body>
 </html>

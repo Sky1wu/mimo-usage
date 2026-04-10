@@ -9,23 +9,43 @@ const CONFIG_PATH = path.join(__dirname, 'config.json');
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+const DEFAULT_CONFIG = { cookieString: '' };
+
 function loadConfig() {
-  return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
+  try {
+    return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
+  } catch {
+    return { ...DEFAULT_CONFIG };
+  }
 }
 
 function saveConfig(cfg) {
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2) + '\n');
 }
 
+// Parse a raw cookie string like 'a=1; b=2' into { a: '1', b: '2' }
+function parseCookieString(str) {
+  const cookies = {};
+  if (!str) return cookies;
+  for (const part of str.split(';')) {
+    const trimmed = part.trim();
+    if (!trimmed) continue;
+    const eqIdx = trimmed.indexOf('=');
+    if (eqIdx === -1) continue;
+    const key = trimmed.slice(0, eqIdx).trim();
+    let val = trimmed.slice(eqIdx + 1).trim();
+    // Strip surrounding quotes
+    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+      val = val.slice(1, -1);
+    }
+    if (key) cookies[key] = val;
+  }
+  return cookies;
+}
+
+// Build cookie header from a raw cookie string, preserving original format
 function buildCookie(cfg) {
-  const parts = [];
-  if (cfg.serviceToken) parts.push(`serviceToken="${cfg.serviceToken}"`);
-  if (cfg.xiaomichatbot_ph) parts.push(`xiaomichatbot_ph="${cfg.xiaomichatbot_ph}"`);
-  if (cfg.apiPlatformServiceToken) parts.push(`api-platform_serviceToken="${cfg.apiPlatformServiceToken}"`);
-  if (cfg.userId) parts.push(`userId=${cfg.userId}`);
-  if (cfg.apiPlatformSlh) parts.push(`api-platform_slh="${cfg.apiPlatformSlh}"`);
-  if (cfg.apiPlatformPh) parts.push(`api-platform_ph="${cfg.apiPlatformPh}"`);
-  return parts.join('; ');
+  return cfg.cookieString || '';
 }
 
 function maskValue(val) {
@@ -38,8 +58,12 @@ function maskValue(val) {
 app.get('/api/usage', async (req, res) => {
   try {
     const cfg = loadConfig();
-    if (!cfg.serviceToken || !cfg.apiPlatformServiceToken || !cfg.userId) {
-      return res.status(400).json({ error: '配置不完整，请先在设置中填写 cookie 信息' });
+    if (!cfg.cookieString) {
+      return res.status(400).json({ error: '配置不完整，请先在设置中粘贴 cookie 信息' });
+    }
+    const cookies = parseCookieString(cfg.cookieString);
+    if (!cookies.serviceToken || !cookies.userId) {
+      return res.status(400).json({ error: 'Cookie 中缺少必要字段 (serviceToken, userId)' });
     }
 
     const resp = await fetch('https://platform.xiaomimimo.com/api/v1/tokenPlan/usage', {
@@ -64,11 +88,12 @@ app.get('/api/usage', async (req, res) => {
 app.get('/api/config', (req, res) => {
   try {
     const cfg = loadConfig();
-    const masked = {};
-    for (const [k, v] of Object.entries(cfg)) {
-      masked[k] = maskValue(v);
-    }
-    res.json({ config: masked, hasValues: Object.values(cfg).some(v => v) });
+    res.json({
+      config: {
+        cookieString: maskValue(cfg.cookieString || ''),
+      },
+      hasValues: !!(cfg.cookieString && cfg.cookieString.trim()),
+    });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -78,11 +103,8 @@ app.get('/api/config', (req, res) => {
 app.put('/api/config', (req, res) => {
   try {
     const cfg = loadConfig();
-    const fields = ['serviceToken', 'xiaomichatbot_ph', 'apiPlatformServiceToken', 'userId', 'apiPlatformSlh', 'apiPlatformPh'];
-    for (const f of fields) {
-      if (req.body[f] !== undefined) {
-        cfg[f] = req.body[f];
-      }
+    if (req.body.cookieString !== undefined) {
+      cfg.cookieString = req.body.cookieString;
     }
     saveConfig(cfg);
     res.json({ ok: true });
