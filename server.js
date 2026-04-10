@@ -5,6 +5,7 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const CONFIG_PATH = path.join(__dirname, 'config.json');
+const ADMIN_KEY = process.env.ADMIN_KEY || '';
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -24,7 +25,6 @@ function loadConfig() {
       if (cfg.apiPlatformSlh) parts.push(`api-platform_slh="${cfg.apiPlatformSlh}"`);
       if (cfg.apiPlatformPh) parts.push(`api-platform_ph="${cfg.apiPlatformPh}"`);
       cfg.cookieString = parts.join('; ');
-      saveConfig(cfg);
     }
     return cfg;
   } catch {
@@ -112,9 +112,12 @@ app.get('/api/config', (req, res) => {
   }
 });
 
-// PUT /api/config - update config
+// PUT /api/config - update config (requires admin key)
 app.put('/api/config', (req, res) => {
   try {
+    if (ADMIN_KEY && req.body.adminKey !== ADMIN_KEY) {
+      return res.status(403).json({ error: '密钥错误' });
+    }
     const cfg = loadConfig();
     if (req.body.cookieString !== undefined) {
       cfg.cookieString = req.body.cookieString;

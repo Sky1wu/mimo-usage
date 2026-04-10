@@ -38,6 +38,8 @@
   .settings-panel textarea { width: 100%; height: 100px; background: #0d1117; color: #e1e4e8; border: 1px solid #30363d; border-radius: 8px; padding: 10px; font-size: .8rem; font-family: monospace; resize: vertical; }
   .settings-panel textarea:focus { outline: none; border-color: #238636; }
   .settings-panel .hint { font-size: .7rem; color: #6e7681; margin-top: 4px; margin-bottom: 10px; }
+  .settings-panel input[type="password"] { width: 100%; background: #0d1117; color: #e1e4e8; border: 1px solid #30363d; border-radius: 8px; padding: 8px 10px; font-size: .8rem; margin-bottom: 10px; }
+  .settings-panel input[type="password"]:focus { outline: none; border-color: #238636; }
   .btn-save { margin-top: 10px; width: 100%; padding: 8px; background: #1f6feb; color: #fff; border: none; border-radius: 8px; font-size: .85rem; cursor: pointer; font-weight: 500; }
   .btn-save:hover { background: #388bfd; }
 </style>
@@ -51,6 +53,8 @@
   <div id="result"></div>
   <button class="settings-toggle" id="settingsToggle" onclick="toggleSettings()">⚙ Cookie 设置</button>
   <div class="settings-panel" id="settingsPanel">
+    <label for="adminKeyInput">管理密钥</label>
+    <input type="password" id="adminKeyInput" placeholder="输入 ADMIN_KEY">
     <label for="cookieInput">Cookie 字符串</label>
     <textarea id="cookieInput" placeholder="粘贴从浏览器复制的完整 Cookie 字符串..."></textarea>
     <div class="hint">从浏览器开发者工具 → 网络 → 请求头 → Cookie 复制完整内容</div>
@@ -121,6 +125,7 @@ async function saveCookie() {
   const btn = document.getElementById('saveBtn');
   const result = document.getElementById('saveResult');
   const cookieString = document.getElementById('cookieInput').value.trim();
+  const adminKey = document.getElementById('adminKeyInput').value;
 
   btn.disabled = true;
   btn.textContent = '保存中...';
@@ -129,7 +134,7 @@ async function saveCookie() {
     const resp = await fetch('/api/config', {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ cookieString }),
+      body: JSON.stringify({ cookieString, adminKey }),
     });
     const data = await resp.json();
     if (!resp.ok) throw new Error(data.error || '保存失败');
